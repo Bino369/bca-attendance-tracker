@@ -38,14 +38,23 @@ export function StudentHistoryView({ student, history, onBack }: StudentHistoryV
   const sortedHistory = [...history].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const handleExport = () => {
-    const headers = ['Date', 'Time Slot', 'Status'];
-    const data = sortedHistory.map(record => [
-        record.date,
-        record.timeSlot,
-        record.present ? 'Present' : 'Absent'
-    ]);
+    const headers = ['Date', 'Day', 'Time Slot', 'Status'];
+    const data = sortedHistory.map(record => {
+        // Create date object safely for local time
+        const [year, month, day] = record.date.split('-').map(Number);
+        const dateObj = new Date(year, month - 1, day);
+        const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+
+        return [
+            record.date,
+            dayName,
+            record.timeSlot,
+            record.present ? 'Present' : 'Absent'
+        ];
+    });
     
-    const filename = `${student.name.replace(/ /g, '_')}_attendance.csv`;
+    const timestamp = new Date().toISOString().split('T')[0];
+    const filename = `${student.name.replace(/ /g, '_')}_Attendance_${timestamp}.csv`;
     exportToCsv(filename, [headers, ...data]);
   };
 

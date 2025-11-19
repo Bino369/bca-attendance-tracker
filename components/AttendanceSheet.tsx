@@ -34,6 +34,24 @@ const XCircleIcon = () => (
     </svg>
 );
 
+const WarningIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500 ml-2" viewBox="0 0 20 20" fill="currentColor">
+    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+  </svg>
+);
+
+const RefreshIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+  </svg>
+);
+
+const TrashIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+  </svg>
+);
+
 const Toggle = ({ checked, onChange }: { checked: boolean, onChange: (checked: boolean) => void }) => {
   return (
     <label className="relative inline-flex items-center cursor-pointer">
@@ -51,6 +69,12 @@ export function AttendanceSheet({ date, timeSlot, students, attendanceData, upda
   const [currentAttendance, setCurrentAttendance] = useState<Record<string, boolean>>({});
   const [hasChanges, setHasChanges] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  
+  // Auto-save state
+  const [draftAvailable, setDraftAvailable] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+
+  const draftKey = `attendance_draft_${formattedDate}_${timeSlot}`;
 
   useEffect(() => {
     const initialData: Record<string, boolean> = {};
@@ -63,7 +87,49 @@ export function AttendanceSheet({ date, timeSlot, students, attendanceData, upda
     setCurrentAttendance(initialData);
     setHasChanges(false);
     setIsSubmitted(false);
-  }, [date, timeSlot, students, attendanceData, formattedDate]);
+    setAutoSaveStatus('idle');
+
+    // Check for existing draft
+    const storedDraft = localStorage.getItem(draftKey);
+    if (storedDraft) {
+        setDraftAvailable(true);
+    } else {
+        setDraftAvailable(false);
+    }
+  }, [date, timeSlot, students, attendanceData, formattedDate, draftKey]);
+
+  // Auto-save effect
+  useEffect(() => {
+    if (!hasChanges || isSubmitted) return;
+
+    setAutoSaveStatus('saving');
+    const timer = setTimeout(() => {
+        localStorage.setItem(draftKey, JSON.stringify(currentAttendance));
+        setAutoSaveStatus('saved');
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [currentAttendance, hasChanges, isSubmitted, draftKey]);
+
+  const handleRestoreDraft = () => {
+      const storedDraft = localStorage.getItem(draftKey);
+      if (storedDraft) {
+          try {
+              const parsed = JSON.parse(storedDraft);
+              setCurrentAttendance(parsed);
+              setHasChanges(true);
+              setDraftAvailable(false);
+              setAutoSaveStatus('saved');
+          } catch (e) {
+              console.error("Failed to restore draft", e);
+          }
+      }
+  };
+
+  const handleDiscardDraft = () => {
+      localStorage.removeItem(draftKey);
+      setDraftAvailable(false);
+  };
 
   const handleToggleChange = (studentId: string, present: boolean) => {
     setCurrentAttendance(prev => ({
@@ -73,6 +139,10 @@ export function AttendanceSheet({ date, timeSlot, students, attendanceData, upda
     if (!hasChanges) {
       setHasChanges(true);
     }
+    // If user interacts while draft prompt is showing, assume they want to proceed with current session (starting fresh or editing)
+    if (draftAvailable) {
+        setDraftAvailable(false);
+    }
   };
 
   const handleSubmit = () => {
@@ -80,8 +150,12 @@ export function AttendanceSheet({ date, timeSlot, students, attendanceData, upda
         updateAttendance(studentId, currentAttendance[studentId]);
     });
 
+    // Clear draft upon successful submission
+    localStorage.removeItem(draftKey);
+
     setHasChanges(false);
     setIsSubmitted(true);
+    setAutoSaveStatus('idle');
   };
 
   const totalStudents = students.length;
@@ -182,18 +256,50 @@ export function AttendanceSheet({ date, timeSlot, students, attendanceData, upda
        </div>
       </div>
       
-      <div className="p-4 sm:p-6 flex-grow">
+      <div className="p-4 sm:p-6 flex-grow relative">
+        {draftAvailable && (
+            <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-md p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in">
+                <div className="flex items-start">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-500 mr-2 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                    <p className="text-sm text-yellow-800">
+                        <span className="font-bold">Unsaved draft found.</span> Do you want to continue where you left off?
+                    </p>
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <button 
+                        onClick={handleRestoreDraft}
+                        className="flex-1 sm:flex-none flex items-center justify-center px-3 py-1.5 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 text-xs font-bold rounded border border-yellow-200 transition-colors"
+                    >
+                        <RefreshIcon /> Restore
+                    </button>
+                    <button 
+                        onClick={handleDiscardDraft}
+                        className="flex-1 sm:flex-none flex items-center justify-center px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-600 text-xs font-bold rounded border border-gray-300 transition-colors"
+                    >
+                        <TrashIcon /> Discard
+                    </button>
+                </div>
+            </div>
+        )}
+
         <div className="space-y-2">
           {students.map(student => {
             const isPresent = currentAttendance[student.id] ?? true;
 
             return (
-              <div key={student.id} className={`flex items-center justify-between p-3 rounded-lg border transition-all duration-200 ${isPresent ? 'bg-white border-transparent hover:bg-gray-50' : 'bg-red-50 border-red-100 shadow-sm'}`}>
+              <div key={student.id} className={`flex items-center justify-between p-3 rounded-lg border transition-all duration-200 ${isPresent ? 'bg-white border-gray-100 hover:bg-gray-50' : 'bg-red-50 border-red-300 shadow-md ring-1 ring-red-200'}`}>
                 <div className="flex items-center overflow-hidden">
-                   <div className={`w-10 h-10 rounded-full mr-3 flex items-center justify-center font-bold text-sm sm:text-base flex-shrink-0 transition-colors ${isPresent ? 'bg-teal-100 text-teal-800' : 'bg-red-200 text-red-800'}`}>
+                   <div className={`w-10 h-10 rounded-full mr-3 flex items-center justify-center font-bold text-sm sm:text-base flex-shrink-0 transition-colors ${isPresent ? 'bg-teal-100 text-teal-800' : 'bg-red-100 text-red-700'}`}>
                      {student.rollNo}
                    </div>
-                   <span className={`font-medium truncate text-sm sm:text-base ${isPresent ? 'text-gray-800' : 'text-red-800'}`}>{student.name}</span>
+                   <div className="flex flex-col">
+                       <div className="flex items-center">
+                           <span className={`font-medium truncate text-sm sm:text-base ${isPresent ? 'text-gray-800' : 'text-red-900 font-bold'}`}>{student.name}</span>
+                           {!isPresent && <WarningIcon />}
+                       </div>
+                   </div>
                 </div>
                 <Toggle 
                   checked={isPresent} 
@@ -205,6 +311,10 @@ export function AttendanceSheet({ date, timeSlot, students, attendanceData, upda
         </div>
 
          <div className="mt-8 flex justify-end items-center space-x-4 sticky bottom-4 z-20">
+            <div className="flex items-center text-xs font-medium text-gray-500 transition-opacity duration-500">
+                {autoSaveStatus === 'saving' && <span className="flex items-center"><span className="animate-pulse mr-1">●</span> Saving draft...</span>}
+                {autoSaveStatus === 'saved' && <span className="text-teal-600">Draft saved locally</span>}
+            </div>
           <button
             onClick={handleSubmit}
             disabled={!hasChanges}

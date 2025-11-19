@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Calendar } from './Calendar';
 import { AttendanceSheet } from './AttendanceSheet';
@@ -30,30 +31,46 @@ export function AttendanceDashboard({ students, attendanceData, updateAttendance
     }
   };
 
-  const handleExportAll = () => {
-    const headers = ['Roll No', 'Student Name', 'Date', 'Time Slot', 'Status'];
+  const handleExportAll = (filterStatus: 'All' | 'Present' | 'Absent' = 'All') => {
+    const headers = ['Roll No', 'Student Name', 'Date', 'Day', 'Time Slot', 'Status'];
     
     const studentMap = new Map(students.map(s => [s.id, s]));
 
-    const data = attendanceData
+    let filteredData = attendanceData;
+    if (filterStatus === 'Present') {
+        filteredData = attendanceData.filter(record => record.present);
+    } else if (filterStatus === 'Absent') {
+        filteredData = attendanceData.filter(record => !record.present);
+    }
+
+    const data = filteredData
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime() || a.studentId.localeCompare(b.studentId))
       .map(record => {
         const student = studentMap.get(record.studentId);
+        
+        // Create date object safely for local time to get correct Day name
+        const [year, month, day] = record.date.split('-').map(Number);
+        const dateObj = new Date(year, month - 1, day);
+        const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+
         return [
             student?.rollNo ?? 'N/A',
             student?.name ?? 'Unknown Student',
             record.date,
+            dayName,
             record.timeSlot,
             record.present ? 'Present' : 'Absent'
         ];
     });
 
     if (data.length === 0) {
-        alert('No attendance data has been recorded yet.');
+        alert(`No ${filterStatus !== 'All' ? filterStatus.toLowerCase() + ' ' : ''}attendance data has been recorded yet.`);
         return;
     }
 
-    exportToCsv('all_students_attendance.csv', [headers, ...data]);
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const filterSuffix = filterStatus === 'All' ? '' : `_${filterStatus}`;
+    exportToCsv(`Attendance_Report${filterSuffix}_${timestamp}.csv`, [headers, ...data]);
   };
 
   return (

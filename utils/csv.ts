@@ -16,7 +16,8 @@ export const exportToCsv = (filename: string, rows: (string | number | boolean)[
   };
 
   const csvContent = rows.map(processRow).join('\n');
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  // Add BOM (Byte Order Mark) \ufeff so Excel opens it as UTF-8
+  const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
   
   const link = document.createElement('a');
   if (link.download !== undefined) { // feature detection

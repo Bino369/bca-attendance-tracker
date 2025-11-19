@@ -1,5 +1,4 @@
-
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const attendanceSchema = new mongoose.Schema({
   studentId: { type: String, required: true },
@@ -11,4 +10,6 @@ const attendanceSchema = new mongoose.Schema({
 // Compound index to ensure one record per student per slot per day
 attendanceSchema.index({ studentId: 1, date: 1, timeSlot: 1 }, { unique: true });
 
-module.exports = mongoose.model('Attendance', attendanceSchema);
+const Attendance = mongoose.model('Attendance', attendanceSchema);
+
+export default Attendance;

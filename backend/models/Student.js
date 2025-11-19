@@ -1,10 +1,11 @@
-
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const studentSchema = new mongoose.Schema({
-  id: { type: String, required: true, unique: true }, // Keeping string ID to match frontend UUIDs
+  id: { type: String, required: true, unique: true }, // matches frontend UUIDs
   name: { type: String, required: true },
   rollNo: { type: Number, required: true, unique: true }
 });
 
-module.exports = mongoose.model('Student', studentSchema);
+const Student = mongoose.model('Student', studentSchema);
+
+export default Student;

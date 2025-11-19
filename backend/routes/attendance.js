@@ -1,7 +1,8 @@
 
-const express = require('express');
+import express from 'express';
+import Attendance from '../models/Attendance.js';
+
 const router = express.Router();
-const Attendance = require('../models/Attendance');
 
 // Get attendance (optional filter by date)
 router.get('/', async (req, res) => {
@@ -36,4 +37,4 @@ router.post('/', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

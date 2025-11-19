@@ -1,68 +1,87 @@
-import dotenv from 'dotenv';
-dotenv.config();
 
+import 'dotenv/config';
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
+import { fileURLToPath } from 'url';
 
-// Routes
 import studentRoutes from './routes/students.js';
 import attendanceRoutes from './routes/attendance.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-
-const MONGODB_URI =
-  process.env.MONGODB_URI || 'mongodb://localhost:27017/attendance_db';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/attendance_db';
 
 // Middleware
-app.use(
-  cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    credentials: true,
-  })
-);
-
+app.use(cors({
+    origin: "*", // Configure appropriately for production if needed
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true
+}));
 app.use(express.json());
 
-// ===== Fix Vercel DB reconnect =====
-let isConnected = false;
+// --- Optimized Database Connection for Serverless ---
+
+// Use global cache to preserve connection across hot reloads in dev
+// and warm starts in serverless environments.
+let cached = global.mongoose;
+
+if (!cached) {
+  cached = global.mongoose = { conn: null, promise: null };
+}
 
 const connectDB = async () => {
-  if (isConnected) return;
+  if (cached.conn) {
+    return cached.conn;
+  }
+
+  if (!cached.promise) {
+    const opts = {
+      bufferCommands: false, // Disable mongoose buffering for serverless to fail fast if not connected
+    };
+
+    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
+      return mongoose;
+    });
+  }
 
   try {
-    await mongoose.connect(MONGODB_URI);
-    isConnected = true;
-    console.log('MongoDB Connected');
-  } catch (err) {
-    console.error('MongoDB Error:', err);
+    cached.conn = await cached.promise;
+  } catch (e) {
+    cached.promise = null;
+    throw e;
   }
+
+  return cached.conn;
 };
 
-// Connect before every request
+// Middleware to ensure DB is connected before handling requests
 app.use(async (req, res, next) => {
-  await connectDB();
-  next();
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error("Database connection error:", err);
+    res.status(500).json({ message: 'Database connection failed', error: err.message });
+  }
 });
 
 // Routes
 app.get('/', (req, res) => {
-  res.send('Attendance API is running...');
+    res.send('Attendance API is running');
 });
 
 app.use('/api/students', studentRoutes);
 app.use('/api/attendance', attendanceRoutes);
 
-// Export for Vercel serverless function
+// Export the app for Vercel (Serverless)
 export default app;
 
-// Local server (NOT used on Vercel)
-if (process.argv[1] === new URL(import.meta.url).pathname) {
-  connectDB().then(() => {
-    app.listen(PORT, () => {
-      console.log(`🔥 Local server running at http://localhost:${PORT}`);
+// Start Server only if running directly (Local Development)
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+    connectDB().then(() => {
+        app.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+        });
     });
-  });
 }

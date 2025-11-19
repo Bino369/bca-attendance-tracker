@@ -12,8 +12,11 @@ type View = 'dashboard' | 'history';
 function App() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const { attendanceData, updateAttendance, getStudentHistory } = useAttendanceStore();
-  const { students } = useStudentStore();
+  const { attendanceData, updateAttendance, getStudentHistory, isOffline: attendanceOffline } = useAttendanceStore();
+  const { students, isOffline: studentsOffline } = useStudentStore();
+
+  // Aggregate offline status
+  const isOffline = attendanceOffline || studentsOffline;
 
   const handleViewHistory = (student: Student) => {
     setSelectedStudent(student);
@@ -34,7 +37,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-800">
-      <Header />
+      <Header isOffline={isOffline} />
       <main className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto">
         {currentView === 'dashboard' && (
           <AttendanceDashboard

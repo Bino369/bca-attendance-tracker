@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import type { Student, AttendanceRecord } from '../types';
 
 interface AttendanceSheetProps {
@@ -52,6 +52,18 @@ const TrashIcon = () => (
   </svg>
 );
 
+const ChevronDownIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+    </svg>
+);
+
+const ChevronUpIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+    </svg>
+);
+
 const Toggle = ({ checked, onChange }: { checked: boolean, onChange: (checked: boolean) => void }) => {
   return (
     <label className="relative inline-flex items-center cursor-pointer">
@@ -74,6 +86,9 @@ export function AttendanceSheet({ date, timeSlot, students, attendanceData, upda
   const [draftAvailable, setDraftAvailable] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
 
+  // UI State for absent list toggle
+  const [showAbsentList, setShowAbsentList] = useState(false);
+
   const draftKey = `attendance_draft_${formattedDate}_${timeSlot}`;
 
   useEffect(() => {
@@ -88,6 +103,7 @@ export function AttendanceSheet({ date, timeSlot, students, attendanceData, upda
     setHasChanges(false);
     setIsSubmitted(false);
     setAutoSaveStatus('idle');
+    setShowAbsentList(false);
 
     // Check for existing draft
     const storedDraft = localStorage.getItem(draftKey);
@@ -139,7 +155,7 @@ export function AttendanceSheet({ date, timeSlot, students, attendanceData, upda
     if (!hasChanges) {
       setHasChanges(true);
     }
-    // If user interacts while draft prompt is showing, assume they want to proceed with current session (starting fresh or editing)
+    // If user interacts while draft prompt is showing, assume they want to proceed with current session
     if (draftAvailable) {
         setDraftAvailable(false);
     }
@@ -159,8 +175,27 @@ export function AttendanceSheet({ date, timeSlot, students, attendanceData, upda
   };
 
   const totalStudents = students.length;
-  const presentCount = students.filter(s => currentAttendance[s.id] ?? true).length;
-  const absentCount = totalStudents - presentCount;
+  
+  // Derived state for real-time counts and list
+  const { presentCount, absentCount, absentStudentsList } = useMemo(() => {
+    let pCount = 0;
+    const aList: Student[] = [];
+    
+    students.forEach(student => {
+        const isPresent = currentAttendance[student.id] ?? true;
+        if (isPresent) {
+            pCount++;
+        } else {
+            aList.push(student);
+        }
+    });
+
+    return {
+        presentCount: pCount,
+        absentCount: students.length - pCount,
+        absentStudentsList: aList
+    };
+  }, [students, currentAttendance]);
 
   if (isSubmitted) {
      return (
@@ -246,14 +281,33 @@ export function AttendanceSheet({ date, timeSlot, students, attendanceData, upda
               </div>
               <span className="text-xl sm:text-2xl font-bold text-green-800">{presentCount}</span>
           </div>
-          <div className={`p-2 sm:p-3 rounded-lg border flex flex-col items-center justify-center transition-colors duration-300 ${absentCount > 0 ? 'bg-red-100 border-red-200 animate-pulse-slow' : 'bg-gray-50 border-gray-100'}`}>
+          <button 
+            onClick={() => absentCount > 0 && setShowAbsentList(!showAbsentList)}
+            disabled={absentCount === 0}
+            className={`relative p-2 sm:p-3 rounded-lg border flex flex-col items-center justify-center transition-colors duration-300 outline-none focus:ring-2 focus:ring-red-300 ${absentCount > 0 ? 'bg-red-50 border-red-200 cursor-pointer hover:bg-red-100' : 'bg-gray-50 border-gray-100 cursor-default'}`}
+          >
                <div className={`flex items-center mb-1 ${absentCount > 0 ? 'text-red-700' : 'text-gray-400'}`}>
                   <XCircleIcon />
                   <span className="ml-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider">Absent</span>
+                  {absentCount > 0 && (showAbsentList ? <ChevronUpIcon /> : <ChevronDownIcon />)}
               </div>
-               <span className={`text-xl sm:text-2xl font-bold ${absentCount > 0 ? 'text-red-800' : 'text-gray-500'}`}>{absentCount}</span>
-          </div>
+               <span className={`text-xl sm:text-2xl font-bold transition-all ${absentCount > 0 ? 'text-red-800 scale-110' : 'text-gray-500'}`}>{absentCount}</span>
+          </button>
        </div>
+       
+       {/* Collapsible Absent Student List */}
+       {showAbsentList && absentCount > 0 && (
+           <div className="mt-4 bg-red-50 rounded-lg border border-red-100 p-3 animate-fade-in">
+                <h4 className="text-xs font-bold text-red-800 uppercase tracking-wider mb-2 border-b border-red-200 pb-1">Currently Absent ({absentCount})</h4>
+                <div className="flex flex-wrap gap-2">
+                    {absentStudentsList.map(student => (
+                        <span key={student.id} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-white text-red-800 border border-red-200 shadow-sm">
+                            {student.rollNo}. {student.name}
+                        </span>
+                    ))}
+                </div>
+           </div>
+       )}
       </div>
       
       <div className="p-4 sm:p-6 flex-grow relative">

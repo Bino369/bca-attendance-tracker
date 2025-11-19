@@ -1,7 +1,14 @@
 
 import type { Student, AttendanceRecord } from '../types';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+// In production (Vercel), use relative path to avoid CORS and use internal routing.
+// In development, use the specific localhost port.
+// We use optional chaining (?.) because import.meta.env might be undefined in some environments.
+const isProd = (import.meta as any).env?.PROD;
+
+const API_BASE_URL = isProd
+  ? '/api' 
+  : 'http://localhost:5000/api';
 
 export const api = {
   async getStudents(): Promise<Student[]> {

@@ -31,17 +31,28 @@ export function AttendanceDashboard({ students, attendanceData, updateAttendance
     }
   };
 
-  const handleExportAll = (filterStatus: 'All' | 'Present' | 'Absent' = 'All') => {
+  const handleExportAll = (
+    filterStatus: 'All' | 'Present' | 'Absent' = 'All',
+    filterTime: string = 'All',
+    filterDate: string = ''
+  ) => {
     const headers = ['Roll No', 'Student Name', 'Date', 'Day', 'Time Slot', 'Status'];
-    
     const studentMap = new Map(students.map(s => [s.id, s]));
 
-    let filteredData = attendanceData;
-    if (filterStatus === 'Present') {
-        filteredData = attendanceData.filter(record => record.present);
-    } else if (filterStatus === 'Absent') {
-        filteredData = attendanceData.filter(record => !record.present);
-    }
+    // --- Filtering Logic ---
+    let filteredData = attendanceData.filter(record => {
+      // 1. Status Filter
+      if (filterStatus === 'Present' && !record.present) return false;
+      if (filterStatus === 'Absent' && record.present) return false;
+
+      // 2. Time Slot Filter
+      if (filterTime !== 'All' && record.timeSlot !== filterTime) return false;
+
+      // 3. Date Filter (Specific Date)
+      if (filterDate && record.date !== filterDate) return false;
+
+      return true;
+    });
 
     const data = filteredData
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime() || a.studentId.localeCompare(b.studentId))
@@ -64,13 +75,26 @@ export function AttendanceDashboard({ students, attendanceData, updateAttendance
     });
 
     if (data.length === 0) {
-        alert(`No ${filterStatus !== 'All' ? filterStatus.toLowerCase() + ' ' : ''}attendance data has been recorded yet.`);
+        let message = 'No attendance records found matching your current filters:\n';
+        if (filterDate) message += `- Date: ${filterDate}\n`;
+        if (filterTime !== 'All') message += `- Time: ${filterTime}\n`;
+        if (filterStatus !== 'All') message += `- Status: ${filterStatus}\n`;
+        message += '\nTry adjusting the filters to export data.';
+        alert(message);
         return;
     }
 
+    // --- Dynamic Filename Generation ---
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const filterSuffix = filterStatus === 'All' ? '' : `_${filterStatus}`;
-    exportToCsv(`Attendance_Report${filterSuffix}_${timestamp}.csv`, [headers, ...data]);
+    
+    let filenameParts = ['Attendance'];
+    if (filterDate) filenameParts.push(filterDate);
+    if (filterTime !== 'All') filenameParts.push(filterTime.replace(/[: ]/g, '').substring(0, 6)); // Shorten time for filename
+    if (filterStatus !== 'All') filenameParts.push(filterStatus);
+    
+    const filename = `${filenameParts.join('_')}_${timestamp}.csv`;
+    
+    exportToCsv(filename, [headers, ...data]);
   };
 
   return (

@@ -56,4 +56,3 @@ export const STUDENTS: Student[] = [
 { id: '45', name: 'YOUHAN ABRAHAM GIFTY', rollNo: 45 },
 { id: '46', name: 'PRANAV. A. V', rollNo: 46 },
 { id: '47', name: 'PRAJITH J', rollNo: 47 }
-]

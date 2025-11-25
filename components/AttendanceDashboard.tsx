@@ -23,7 +23,8 @@ export function AttendanceDashboard({ students, attendanceData, updateAttendance
     setSelectedTimeSlot(null); // Reset time slot when date changes
   };
 
-  const formattedDate = selectedDate.toISOString().split('T')[0];
+  // Fix: Use local date parts to construct YYYY-MM-DD to avoid timezone shifting (yesterday issue)
+  const formattedDate = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
 
   const updateSheetAttendance = (studentId: string, present: boolean) => {
     if (selectedTimeSlot) {

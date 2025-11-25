@@ -77,7 +77,9 @@ const Toggle = ({ checked, onChange }: { checked: boolean, onChange: (checked: b
 };
 
 export function AttendanceSheet({ date, timeSlot, students, attendanceData, updateAttendance }: AttendanceSheetProps) {
-  const formattedDate = date.toISOString().split('T')[0];
+  // Fix: Use local date parts to construct YYYY-MM-DD
+  const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  
   const [currentAttendance, setCurrentAttendance] = useState<Record<string, boolean>>({});
   const [hasChanges, setHasChanges] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
